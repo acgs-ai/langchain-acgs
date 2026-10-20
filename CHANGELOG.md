@@ -6,7 +6,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
-## 0.1.0 (unreleased)
+## 0.1.1 (unreleased)
+
+### Fixed
+
+- When a blocking rule and a review rule both match a tool call, the denial reason now lists only the blocking
+  rules after "Blocked by" and names the matched review rules separately ("Review rules that also matched: ...").
+  Previously the review rule was also listed under "Blocked by". The verdict was already `deny` and is unchanged;
+  `rule_ids` still contains every matched rule.
+
+## 0.1.0 (2026-10-20)
 
 ### Added
 

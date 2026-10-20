@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-acgs"
-version = "0.1.0"
+version = "0.1.1"
 description = "ACGS tool-call governance middleware for LangChain agents"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
