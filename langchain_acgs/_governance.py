@@ -69,6 +69,7 @@ class GovernanceDecision:
     :param verdict: The verdict the adapter maps to a native framework decision.
     :param tool_name: Name of the evaluated tool.
     :param reason: Human-readable explanation. It names matched rules but never includes argument values.
+        For ``DENY`` it starts with ``Blocked by`` followed by the blocking rules only.
     :param rule_ids: IDs of the blocking or review rules that matched, in match order.
     :param warning_rule_ids: IDs of non-blocking (warn) rules that matched.
     :param error: Set when the verdict is ``DENY`` because evaluation itself failed.
@@ -182,7 +183,9 @@ class ToolCallGovernor:
     - anything else (``block``, ``block_and_notify``, ``halt_and_alert``, a rule ID that is not in
       the constitution, an unknown action, or an invalid result without violations): ``DENY``.
 
-    A blocking rule is never downgraded to ``REVIEW`` because a review rule matched as well.
+    A blocking rule is never downgraded to ``REVIEW`` because a review rule matched as well. In
+    that case the reason names only the blocking rules after ``Blocked by`` and lists the matched
+    review rules separately; ``rule_ids`` still contains every matched rule in match order.
     Any exception raised while formatting or validating also yields ``DENY``.
     """
 
@@ -268,29 +271,34 @@ class ToolCallGovernor:
                 reason="ACGS reported the call as invalid without naming a rule.",
                 warning_rule_ids=warnings,
             )
-        actions = [self._workflow_action(rule_id) for rule_id in rule_ids]
-        details = "; ".join(self._describe(rule_id) for rule_id in rule_ids)
-        if all(action in _REVIEW_ACTIONS for action in actions):
+        review_ids = tuple(rule_id for rule_id in rule_ids if self._workflow_action(rule_id) in _REVIEW_ACTIONS)
+        blocking_ids = tuple(rule_id for rule_id in rule_ids if rule_id not in review_ids)
+        if not blocking_ids:
             return GovernanceDecision(
                 verdict=Verdict.REVIEW,
                 tool_name=tool_name,
-                reason=f"Human review required by {details}.",
+                reason=f"Human review required by {self._describe(review_ids)}.",
                 rule_ids=rule_ids,
                 warning_rule_ids=warnings,
             )
+        reason = f"Blocked by {self._describe(blocking_ids)}."
+        if review_ids:
+            reason += f" Review rules that also matched: {self._describe(review_ids)}."
         return GovernanceDecision(
             verdict=Verdict.DENY,
             tool_name=tool_name,
-            reason=f"Blocked by {details}.",
+            reason=reason,
             rule_ids=rule_ids,
             warning_rule_ids=warnings,
         )
 
-    def _describe(self, rule_id: str) -> str:
-        rule = self._rules.get(rule_id)
-        if rule is None:
-            return f"ACGS rule {rule_id}"
-        return f"ACGS rule {rule_id} ({rule.text})"
+    def _describe(self, rule_ids: Sequence[str]) -> str:
+        """Join ``ACGS rule <id> (<text>)`` descriptions for ``rule_ids``; unknown IDs have no text."""
+        parts = []
+        for rule_id in rule_ids:
+            rule = self._rules.get(rule_id)
+            parts.append(f"ACGS rule {rule_id}" if rule is None else f"ACGS rule {rule_id} ({rule.text})")
+        return "; ".join(parts)
 
     @staticmethod
     def _log(decision: GovernanceDecision) -> None:

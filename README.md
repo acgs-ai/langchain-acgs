@@ -188,6 +188,8 @@ after approval: Refunded 20.0 for A-17
    | Any exception while reading or evaluating the tool call | Denied (fail-closed) |
 
    A matched blocking rule is never downgraded to review because a review rule matched as well.
+   The denial reason then lists only the blocking rules after "Blocked by" and names the matched review
+   rules separately.
 
 A denial is returned in place of the tool result:
 `ToolMessage(content="Tool call '<name>' was not executed. <reason>", status="error")`. The reason names the matched

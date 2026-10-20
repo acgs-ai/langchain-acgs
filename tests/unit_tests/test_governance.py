@@ -160,6 +160,37 @@ class TestVerdictMapping:
         assert decision.verdict is Verdict.DENY
         assert set(decision.rule_ids) == {"T-REVIEW", "T-BLOCK"}
 
+    def test_mixed_match_names_only_blocking_rules_under_blocked_by(self, governor: ToolCallGovernor) -> None:
+        # Regression (0.1.0): the review rule was listed under "Blocked by" next to the blocking rule.
+        decision = governor.evaluate("t", {"a": "refund and delete everything"})
+        assert decision.reason == (
+            "Blocked by ACGS rule T-BLOCK (no deletes). "
+            "Review rules that also matched: ACGS rule T-REVIEW (refunds need review)."
+        )
+
+    def test_mixed_match_with_several_rules_of_each_kind(self, governor: ToolCallGovernor) -> None:
+        decision = governor.evaluate("t", {"a": "wire transfer refund, exfiltrate, then delete everything"})
+        assert decision.verdict is Verdict.DENY
+        blocked, _, review = decision.reason.partition(" Review rules that also matched: ")
+        assert blocked.startswith("Blocked by ")
+        assert "T-BLOCK" in blocked
+        assert "T-NOTIFY" in blocked
+        assert "T-REVIEW" not in blocked
+        assert "T-ESCALATE" not in blocked
+        assert "T-REVIEW" in review
+        assert "T-ESCALATE" in review
+        assert "T-BLOCK" not in review
+        assert "T-NOTIFY" not in review
+        assert set(decision.rule_ids) == {"T-BLOCK", "T-NOTIFY", "T-REVIEW", "T-ESCALATE"}
+
+    def test_block_only_reason_has_no_review_section(self, governor: ToolCallGovernor) -> None:
+        decision = governor.evaluate("t", {"a": "delete everything"})
+        assert decision.reason == "Blocked by ACGS rule T-BLOCK (no deletes)."
+
+    def test_review_only_reason(self, governor: ToolCallGovernor) -> None:
+        decision = governor.evaluate("t", {"a": "refund order 7"})
+        assert decision.reason == "Human review required by ACGS rule T-REVIEW (refunds need review)."
+
     def test_default_constitution_is_used_when_none_given(self) -> None:
         governor = ToolCallGovernor(agent_id="x")
         assert governor.constitution.hash == Constitution.default().hash
@@ -216,6 +247,23 @@ class TestFailClosed:
         decision = governor.evaluate("t", {})
         assert decision.verdict is Verdict.DENY
         assert decision.rule_ids == ("NOT-IN-CONSTITUTION",)
+        assert decision.reason == "Blocked by ACGS rule NOT-IN-CONSTITUTION."
+
+    def test_unknown_rule_id_next_to_review_rule_is_listed_as_blocking(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        governor = ToolCallGovernor(ALL_RULES, agent_id="t")
+        violations = [
+            Violation("T-REVIEW", "refunds need review", Severity.HIGH, "x", "custom"),
+            Violation("NOT-IN-CONSTITUTION", "x", Severity.HIGH, "x", "custom"),
+        ]
+        result = ValidationResult(valid=False, constitutional_hash=ALL_RULES.hash, violations=violations)
+        monkeypatch.setattr(governor._engine, "validate", lambda *_a, **_k: result)
+        decision = governor.evaluate("t", {})
+        assert decision.verdict is Verdict.DENY
+        assert decision.rule_ids == ("T-REVIEW", "NOT-IN-CONSTITUTION")
+        assert decision.reason == (
+            "Blocked by ACGS rule NOT-IN-CONSTITUTION. "
+            "Review rules that also matched: ACGS rule T-REVIEW (refunds need review)."
+        )
 
     def test_invalid_result_without_violations_denies(self, monkeypatch: pytest.MonkeyPatch) -> None:
         governor = ToolCallGovernor(ALL_RULES, agent_id="t")

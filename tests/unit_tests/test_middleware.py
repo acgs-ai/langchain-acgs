@@ -115,7 +115,10 @@ def test_block_outranks_review_even_when_both_match() -> None:
     assert "__interrupt__" not in result
     assert executed == []
     [message] = _tool_messages(result)
-    assert "T-BLOCK" in message.content
+    assert message.content == (
+        "Tool call 'issue_refund' was not executed. Blocked by ACGS rule T-BLOCK (no deletes). "
+        "Review rules that also matched: ACGS rule T-REVIEW (refunds need review)."
+    )
     assert message.artifact["rule_ids"] == ["T-REVIEW", "T-BLOCK"]
 
 
