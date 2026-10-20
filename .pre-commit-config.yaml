@@ -1,0 +1,29 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+  - repo: local
+    hooks:
+      - id: make-format
+        name: Format code (make format)
+        entry: make format
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: make-lint
+        name: Lint and type check (make lint)
+        entry: make lint
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: make-test
+        name: Unit tests (make test)
+        entry: make test
+        language: system
+        pass_filenames: false
+        types: [python]
