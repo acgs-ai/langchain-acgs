@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## 0.2.0 (unreleased)
+
+### Added
+
+- Offline `examples/deny_and_audit.py`: one allowed and one denied LangChain tool call, with an application
+  decision trail.
+- Regression coverage for nested JSON-native arguments and bytes/bytearray formatting against acgs-lite 4.0.0.
+
+### Changed
+
+- Bump the adapter version to 0.2.0 and document the compatibility matrix: acgs-lite 4.0.0 is tested in the
+  default environment; the CI `test-min` job keeps testing the 3.0.1 floor. Runtime support remains
+  `acgs-lite>=3.0.1,<5` with unchanged dependency constraints.
+- Clarify that the adapter uses text-based rule validation and does not issue signed receipts.
+
 ## 0.1.1 (2026-10-20)
 
 ### Fixed
